@@ -25,6 +25,9 @@ import typing
 from contextlib import contextmanager
 from edb.schema import name as sn
 from edb.schema import objects as so
+from edb.schema import pointers as s_pointers
+from edb.schema import schema as s_schema
+from edb.schema import types as s_types
 
 from edb.edgeql import ast as qlast
 
@@ -32,10 +35,10 @@ from edb.edgeql import ast as qlast
 class NamedObject:
     '''Generic tracing object with an explicit name.'''
 
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         self.name = name
 
-    def get_name(self, schema):
+    def get_name(self, schema: s_schema.Schema) -> str:
         return self.name
 
 
@@ -61,26 +64,30 @@ class Type(NamedObject):
 
 class ObjectType(Type):
 
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         super().__init__(name)
         self.pointers = {}
 
     def is_pointer(self) -> bool:
         return False
 
-    def getptr(self, schema, name):
+    def getptr(
+        self,
+        schema: s_schema.Schema,
+        name: str,
+    ) -> typing.Optional[typing.Union[s_pointers.Pointer, Pointer]]:
         return self.pointers.get(name)
 
 
 class UnionType:
 
-    def __init__(self, types):
+    def __init__(self, types: typing.List[so.Object]) -> None:
         self.types = types
 
 
 class Pointer:
 
-    def __init__(self, name, *, source=None, target=None):
+    def __init__(self, name: str, *, source=None, target=None) -> None:
         self.name = name
         self.source = source
         self.target = target
@@ -89,23 +96,27 @@ class Pointer:
     def is_pointer(self) -> bool:
         return True
 
-    def getptr(self, schema, name):
+    def getptr(
+        self,
+        schema: s_schema.Schema,
+        name: str,
+    ) -> typing.Optional[typing.Union[s_pointers.Pointer, Pointer]]:
         return self.pointers.get(name)
 
-    def get_target(self, schema):
+    def get_target(self, schema: s_schema.Schema) -> s_types.Type:
         return self.target
 
-    def get_source(self, schema):
+    def get_source(self, schema: s_schema.Schema) -> so.Object:
         return self.source
 
-    def get_name(self, schema):
+    def get_name(self, schema: s_schema.Schema) -> str:
         return self.name
 
 
 def trace_refs(
     qltree: qlast.Base,
     *,
-    schema,
+    schema: s_schema.Schema,
     source: typing.Optional[sn.Name] = None,
     subject: typing.Optional[sn.Name] = None,
     path_prefix: typing.Optional[sn.Name] = None,
@@ -134,15 +145,15 @@ class TracerContext:
     def __init__(
         self,
         *,
-        schema,
-        module,
-        objects,
-        source,
-        subject,
-        path_prefix,
-        modaliases,
-        params,
-    ):
+        schema: s_schema.Schema,
+        module: typing.Optional[str],
+        objects: typing.Dict[str, object],
+        source: typing.Optional[sn.Name],
+        subject: typing.Optional[sn.Name],
+        path_prefix: typing.Optional[sn.Name],
+        modaliases: typing.Mapping[typing.Optional[str], str],
+        params: typing.Dict[str, str],
+    ) -> None:
         self.schema = schema
         self.refs = set()
         self.module = module
@@ -190,7 +201,12 @@ class TracerContext:
 
 
 @contextmanager
-def alias_context(ctx, aliases):
+def alias_context(
+    ctx: TracerContext,
+    aliases: typing.List[typing.Union[
+        qlast.AliasedExpr, qlast.ModuleAliasDecl
+    ]],
+) -> None:
     module = None
     modaliases = {}
 
